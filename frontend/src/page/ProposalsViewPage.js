@@ -91,12 +91,14 @@ const ProposalsViewPage = () => {
                   <th>Client Name</th>
                   <th>Hotel</th>
                   <th>City</th>
-                  <th>Stars</th>
                   <th>Guests</th>
+                  <th>Rooms</th>
+                  <th>Room Type</th>
+                  <th>Nights</th>
                   <th>Check-in</th>
                   <th>Check-out</th>
                   <th>Price</th>
-                  <th>Created</th>
+                  <th>Breakfast</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -110,19 +112,26 @@ const ProposalsViewPage = () => {
                     <td>{proposal.hotel?.name}</td>
                     <td>{proposal.hotel?.city}</td>
                     <td>
-                      {'★'.repeat(proposal.hotel?.stars || 0)}
-                      <span className="text-muted">{'☆'.repeat(5-(proposal.hotel?.stars || 0))}</span>
+                      <span className="badge bg-info">{proposal.guests}</span>
                     </td>
                     <td>
-                      <span className="badge bg-info">{proposal.guests}</span>
+                      <span className="badge bg-warning">{proposal.numberOfRooms}</span>
+                    </td>
+                    <td>
+                      <span className="badge bg-secondary">{proposal.roomType}</span>
+                    </td>
+                    <td>
+                      <span className="badge bg-light text-dark">{proposal.nights}</span>
                     </td>
                     <td>{formatDate(proposal.checkIn)}</td>
                     <td>{formatDate(proposal.checkOut)}</td>
                     <td>
                       <strong>€{proposal.price}</strong>
                     </td>
-                    <td className="text-muted small">
-                      {formatDate(proposal.createdAt)}
+                    <td>
+                      <span className={`badge ${proposal.breakfast ? 'bg-success' : 'bg-secondary'}`}>
+                        {proposal.breakfast ? 'Yes' : 'No'}
+                      </span>
                     </td>
                     <td>
                       <div className="btn-group btn-group-sm">

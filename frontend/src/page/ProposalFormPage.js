@@ -9,6 +9,9 @@ const ProposalFormPage = () => {
   const [formData, setFormData] = useState({
     clientName: '',
     guests: 1,
+    nights: 1,
+    numberOfRooms: 1,
+    roomType: 'Standard',
     checkIn: '',
     checkOut: '',
     breakfast: false,
@@ -35,8 +38,6 @@ const ProposalFormPage = () => {
       setFormData(prev => ({
         ...prev,
         hotelId: hotel.id,
-        price: hotel.price || '',
-        breakfast: hotel.breakfast || false
       }));
       
       if (location.state.filters) {
@@ -119,10 +120,39 @@ const ProposalFormPage = () => {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
+    
+    const newFormData = {
+      ...formData,
       [name]: type === 'checkbox' ? checked : value,
-    }));
+    };
+
+    if (name === 'guests') {
+      const guests = parseInt(value) || 1;
+      let numberOfRooms = 1;
+      
+      if (guests <= 2) {
+        numberOfRooms = 1;
+      } else if (guests <= 4) {
+        numberOfRooms = 2;
+      } else if (guests <= 6) {
+        numberOfRooms = 3;
+      } else {
+        numberOfRooms = Math.ceil(guests / 2);
+      }
+      
+      newFormData.numberOfRooms = numberOfRooms;
+    }
+
+    if (name === 'checkIn' || name === 'checkOut') {
+      if (newFormData.checkIn && newFormData.checkOut) {
+        const checkInDate = new Date(newFormData.checkIn);
+        const checkOutDate = new Date(newFormData.checkOut);
+        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+        newFormData.nights = nights > 0 ? nights : 1;
+      }
+    }
+
+    setFormData(newFormData);
   };
 
   const handleHotelSelect = (hotel) => {
@@ -130,8 +160,6 @@ const ProposalFormPage = () => {
     setFormData(prev => ({
       ...prev,
       hotelId: hotel.id,
-      price: hotel.price || '',
-      breakfast: hotel.breakfast || false
     }));
   };
 
@@ -153,6 +181,11 @@ const ProposalFormPage = () => {
       return;
     }
 
+    if (!formData.price) {
+      alert('Please enter price');
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:8080/api/proposals', {
         method: 'POST',
@@ -162,11 +195,14 @@ const ProposalFormPage = () => {
         body: JSON.stringify({
           clientName: formData.clientName,
           guests: parseInt(formData.guests),
+          nights: parseInt(formData.nights),
+          numberOfRooms: parseInt(formData.numberOfRooms),
+          roomType: formData.roomType,
           checkIn: formData.checkIn,
           checkOut: formData.checkOut,
+          price: parseFloat(formData.price),
           breakfast: formData.breakfast,
           freeCancel: formData.freeCancel,
-          price: parseFloat(formData.price),
           hotelId: parseInt(formData.hotelId),
         }),
       });
@@ -183,14 +219,6 @@ const ProposalFormPage = () => {
       console.error('Error submitting proposal:', err);
       alert('Error submitting proposal');
     }
-  };
-
-  const getAvailableSpots = (hotel) => {
-    return hotel.max_guests - hotel.current_guests;
-  };
-
-  const isHotelAvailable = (hotel) => {
-    return getAvailableSpots(hotel) >= parseInt(formData.guests || 1);
   };
 
   if (loading) return <div className="container mt-5"><div className="alert alert-info">Loading...</div></div>;
@@ -215,7 +243,6 @@ const ProposalFormPage = () => {
       </div>
 
       <div className="row">
-        {/* Левая часть - форма */}
         <div className="col-md-5">
           <div className="card">
             <div className="card-header bg-primary text-white">
@@ -245,22 +272,49 @@ const ProposalFormPage = () => {
                       value={formData.guests}
                       onChange={handleFormChange}
                       min="1"
-                      max={selectedHotel ? selectedHotel.max_guests : 10}
                       required
                     />
-                    <small className="text-muted">
-                      Max: {selectedHotel ? selectedHotel.max_guests : 'N/A'}
-                    </small>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Price (€) *</label>
+                    <label className="form-label">Number of Rooms</label>
                     <input
                       type="number"
-                      step="0.01"
                       className="form-control"
-                      name="price"
-                      value={formData.price}
+                      name="numberOfRooms"
+                      value={formData.numberOfRooms}
                       onChange={handleFormChange}
+                      min="1"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Room Type *</label>
+                    <select
+                      className="form-control"
+                      name="roomType"
+                      value={formData.roomType}
+                      onChange={handleFormChange}
+                      required
+                    >
+                      <option value="Standard">Standard</option>
+                      <option value="Deluxe">Deluxe</option>
+                      <option value="Suite">Suite</option>
+                      <option value="Family">Family</option>
+                      <option value="Executive">Executive</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Nights</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="nights"
+                      value={formData.nights}
+                      onChange={handleFormChange}
+                      min="1"
                       required
                     />
                   </div>
@@ -285,6 +339,21 @@ const ProposalFormPage = () => {
                       className="form-control"
                       name="checkOut"
                       value={formData.checkOut}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Price (€) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      name="price"
+                      value={formData.price}
                       onChange={handleFormChange}
                       required
                     />
@@ -323,8 +392,7 @@ const ProposalFormPage = () => {
                     <h6>Selected Hotel:</h6>
                     <strong>{selectedHotel.name}</strong><br />
                     <small>
-                      {selectedHotel.city} • {selectedHotel.stars} stars • 
-                      Available spots: {getAvailableSpots(selectedHotel)}
+                      {selectedHotel.city} • {selectedHotel.stars} stars • {selectedHotel.type}
                     </small>
                   </div>
                 )}
@@ -397,9 +465,9 @@ const ProposalFormPage = () => {
                     <tr>
                       <th>Hotel Name</th>
                       <th>City</th>
+                      <th>Type</th>
                       <th>Stars</th>
-                      <th>Available</th>
-                      <th>Price</th>
+                      <th>Breakfast</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -417,24 +485,22 @@ const ProposalFormPage = () => {
                           )}
                         </td>
                         <td>{hotel.city}</td>
+                        <td>{hotel.type || '-'}</td>
                         <td>
                           {'★'.repeat(hotel.stars)}
                           <span className="text-muted">{'☆'.repeat(5-hotel.stars)}</span>
                         </td>
                         <td>
-                          <span className={`badge ${isHotelAvailable(hotel) ? 'bg-success' : 'bg-warning'}`}>
-                            {getAvailableSpots(hotel)}
+                          <span className={`badge ${hotel.breakfast ? 'bg-success' : 'bg-secondary'}`}>
+                            {hotel.breakfast ? 'Yes' : 'No'}
                           </span>
                         </td>
-                        <td>€{hotel.price}</td>
                         <td>
                           <button 
                             className={`btn btn-sm ${
                               selectedHotel?.id === hotel.id ? 'btn-success' : 'btn-outline-primary'
                             }`}
                             onClick={() => handleHotelSelect(hotel)}
-                            disabled={!isHotelAvailable(hotel)}
-                            title={!isHotelAvailable(hotel) ? `Not enough spots for ${formData.guests} guests` : ''}
                           >
                             {selectedHotel?.id === hotel.id ? 'Selected' : 'Select'}
                           </button>

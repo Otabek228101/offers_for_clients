@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HotelTable from '../components/HotelTable';
 import HotelService from '../services/HotelService';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -43,7 +42,6 @@ const HotelsPage = () => {
   const applyFiltersAndSort = () => {
     let filtered = [...hotels];
     
-    // Применяем фильтры
     if (filters.city) {
       filtered = filtered.filter(hotel => 
         hotel.city.toLowerCase().includes(filters.city.toLowerCase())
@@ -115,23 +113,6 @@ const HotelsPage = () => {
       stars: '',
       groupName: ''
     });
-  };
-
-  const handleSelectHotel = (hotel) => {
-    navigate('/form', { 
-      state: { 
-        selectedHotel: hotel,
-        filters: {
-          city: hotel.city,
-          stars: filters.stars,
-          groupName: filters.groupName
-        }
-      } 
-    });
-  };
-
-  const getAvailableSpots = (hotel) => {
-    return hotel.max_guests - hotel.current_guests;
   };
 
   if (loading) return <div className="container mt-5"><div className="alert alert-info">Loading hotels...</div></div>;
@@ -246,9 +227,6 @@ const HotelsPage = () => {
                   </th>
                   <th>Address</th>
                   <th>Breakfast</th>
-                  <th>Available Spots</th>
-                  <th>Price</th>
-                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -267,21 +245,6 @@ const HotelsPage = () => {
                       <span className={`badge ${hotel.breakfast ? 'bg-success' : 'bg-secondary'}`}>
                         {hotel.breakfast ? 'Yes' : 'No'}
                       </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${getAvailableSpots(hotel) > 0 ? 'bg-success' : 'bg-danger'}`}>
-                        {getAvailableSpots(hotel)}
-                      </span>
-                    </td>
-                    <td>€{hotel.price}</td>
-                    <td>
-                      <button 
-                        className="btn btn-primary btn-sm" 
-                        onClick={() => handleSelectHotel(hotel)}
-                        disabled={getAvailableSpots(hotel) === 0}
-                      >
-                        Create Proposal
-                      </button>
                     </td>
                   </tr>
                 ))}
