@@ -106,26 +106,26 @@ const HotelsPage = () => {
         <div className="col-md-8">
           <h1>Hotels Management</h1>
         </div>
-          <div className="col-md-4 text-end">
-            <button
-              className="btn btn-primary me-2"
-              onClick={() => navigate('/create-hotel')}
-            >
-              Add New Hotel
-            </button>
-            <button
-              className="btn btn-success me-2"
-              onClick={() => navigate('/form')}
-            >
-              Create Proposal
-            </button>
-            <button
-              className="btn btn-outline-primary"
-              onClick={() => navigate('/proposals')}
-            >
-              View Proposals
-            </button>
-          </div>
+            <div className="col-md-4 text-end">
+              <button
+                className="btn btn-primary me-2"
+                onClick={() => navigate('/create-hotel')}
+              >
+                Add New Hotel
+              </button>
+              <button
+                className="btn btn-success me-2"
+                onClick={() => navigate('/form')}
+              >
+                Create Proposal
+              </button>
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => navigate('/proposals')}
+              >
+                View Proposals
+              </button>
+            </div>
       </div>
 
       <div className="card mb-4">

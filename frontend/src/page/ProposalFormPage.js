@@ -9,9 +9,6 @@ const ProposalFormPage = () => {
   const [formData, setFormData] = useState({
     clientName: '',
     guests: 1,
-    nights: 1,
-    numberOfRooms: 1,
-    roomType: 'Standard',
     checkIn: '',
     checkOut: '',
     breakfast: false,
@@ -19,6 +16,8 @@ const ProposalFormPage = () => {
     price: '',
     hotelId: '',
   });
+
+  const [rooms, setRooms] = useState([{ count: 1 }]);
 
   const [hotels, setHotels] = useState([]);
   const [filteredHotels, setFilteredHotels] = useState([]);
@@ -122,39 +121,27 @@ const ProposalFormPage = () => {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-
-    const newFormData = {
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       [name]: type === 'checkbox' ? checked : value,
-    };
+    }));
+  };
 
-    if (name === 'guests') {
-      const guests = parseInt(value) || 1;
-      let numberOfRooms = 1;
+  const handleRoomChange = (index, field, value) => {
+    const newRooms = [...rooms];
+    newRooms[index][field] = value;
+    setRooms(newRooms);
+  };
 
-      if (guests <= 2) {
-        numberOfRooms = 1;
-      } else if (guests <= 4) {
-        numberOfRooms = 2;
-      } else if (guests <= 6) {
-        numberOfRooms = 3;
-      } else {
-        numberOfRooms = Math.ceil(guests / 2);
-      }
+  const addRoom = () => {
+    setRooms([...rooms, { count: 1 }]);
+  };
 
-      newFormData.numberOfRooms = numberOfRooms;
+  const removeRoom = (index) => {
+    if (rooms.length > 1) {
+      const newRooms = rooms.filter((_, i) => i !== index);
+      setRooms(newRooms);
     }
-
-    if (name === 'checkIn' || name === 'checkOut') {
-      if (newFormData.checkIn && newFormData.checkOut) {
-        const checkInDate = new Date(newFormData.checkIn);
-        const checkOutDate = new Date(newFormData.checkOut);
-        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-        newFormData.nights = nights > 0 ? nights : 1;
-      }
-    }
-
-    setFormData(newFormData);
   };
 
   const handleHotelSelect = (hotel) => {
@@ -167,313 +154,251 @@ const ProposalFormPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!selectedHotel) {
-      alert('Please select a hotel first');
+      alert('Please select a hotel');
       return;
     }
-
-    if (!formData.clientName) {
-      alert('Please enter client name');
+    if (!formData.clientName.trim()) {
+      alert('Client Name is required');
       return;
     }
-
+    if (!formData.guests || formData.guests < 1) {
+      alert('Guests must be at least 1');
+      return;
+    }
     if (!formData.checkIn || !formData.checkOut) {
-      alert('Please select check-in and check-out dates');
+      alert('Check-in and Check-out dates are required');
       return;
     }
-
     if (new Date(formData.checkOut) <= new Date(formData.checkIn)) {
-      alert('Check-out date must be after check-in date');
+      alert('Check-out must be after check-in');
       return;
     }
-
-    if (!formData.price) {
-      alert('Please enter price');
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      alert('Price must be greater than 0');
       return;
     }
+    if (rooms.length === 0) {
+      alert('At least one room is required');
+      return;
+    }
+    for (let room of rooms) {
+      if (!room.count || room.count <= 0) {
+        alert('Room count must be greater than 0');
+        return;
+      }
+    }
 
+    const payload = {
+      ClientName: formData.clientName,
+      Guests: parseInt(formData.guests),
+      CheckIn: formData.checkIn,
+      CheckOut: formData.checkOut,
+      Price: parseFloat(formData.price),
+      Breakfast: formData.breakfast,
+      FreeCancel: formData.freeCancel,
+      HotelID: selectedHotel.id,
+      Rooms: rooms.map(r => ({ Count: parseInt(r.count) })),
+    };
+
+    console.log('Submitting payload:', payload);
     setSubmitLoading(true);
-
     try {
-      const proposalData = {
-        clientName: formData.clientName,
-        guests: parseInt(formData.guests),
-        nights: parseInt(formData.nights),
-        numberOfRooms: parseInt(formData.numberOfRooms),
-        roomType: formData.roomType,
-        checkIn: formData.checkIn,
-        checkOut: formData.checkOut,
-        price: parseFloat(formData.price),
-        breakfast: formData.breakfast,
-        freeCancel: formData.freeCancel,
-        hotelId: parseInt(formData.hotelId),
-      };
-
-      console.log('Sending proposal data:', proposalData);
-
       const response = await fetch('http://localhost:8080/api/proposals', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(proposalData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
-      const responseData = await response.json();
-
+      const result = await response.json();
       if (response.ok) {
-        alert(`Proposal created successfully! Proposal Number: ${responseData.proposalNumber}`);
+        alert('Proposal created successfully');
         navigate('/proposals');
       } else {
-        console.error('Server error:', responseData);
-        alert(`Failed to create proposal: ${responseData.error}`);
+        console.error('Server response:', result);
+        alert(result.error || 'Failed to create proposal');
       }
     } catch (err) {
       console.error('Error submitting proposal:', err);
-      alert('Error submitting proposal. Check console for details.');
+      alert('Error submitting proposal');
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  if (loading) return <div className="container mt-5"><div className="alert alert-info">Loading...</div></div>;
-
   return (
     <div className="container-fluid mt-3">
-      <div className="row mb-3">
-        <div className="col-12">
-          <button
-            className="btn btn-secondary me-2"
-            onClick={() => navigate('/')}
-          >
-            ← Back to Hotels
-          </button>
-          <h2 className="d-inline-block align-middle">Create Proposal</h2>
-          {selectedHotel && (
-            <span className="ms-3 badge bg-success align-middle">
-              Selected: {selectedHotel.name}
-            </span>
-          )}
-        </div>
-      </div>
-
       <div className="row">
-        <div className="col-md-5">
-          <div className="card">
-            <div className="card-header bg-primary text-white">
-              <h5>Proposal Details</h5>
+        <div className="col-md-6">
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label className="form-label">Client Name</label>
+              <input
+                type="text"
+                className="form-control"
+                name="clientName"
+                value={formData.clientName}
+                onChange={handleFormChange}
+                required
+              />
             </div>
+
+            <div className="mb-3">
+              <label className="form-label">Guests</label>
+              <input
+                type="number"
+                className="form-control"
+                name="guests"
+                value={formData.guests}
+                onChange={handleFormChange}
+                min="1"
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Check-in</label>
+              <input
+                type="date"
+                className="form-control"
+                name="checkIn"
+                value={formData.checkIn}
+                onChange={handleFormChange}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Check-out</label>
+              <input
+                type="date"
+                className="form-control"
+                name="checkOut"
+                value={formData.checkOut}
+                onChange={handleFormChange}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  name="breakfast"
+                  checked={formData.breakfast}
+                  onChange={handleFormChange}
+                />
+                <label className="form-check-label">Breakfast</label>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  name="freeCancel"
+                  checked={formData.freeCancel}
+                  onChange={handleFormChange}
+                />
+                <label className="form-check-label">Free Cancel</label>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Price</label>
+              <input
+                type="number"
+                className="form-control"
+                name="price"
+                value={formData.price}
+                onChange={handleFormChange}
+                step="0.01"
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Rooms</label>
+              {rooms.map((room, index) => (
+                <div key={index} className="row mb-2 align-items-center">
+                  <div className="col-8">
+                    <input
+                      type="number"
+                      className="form-control"
+                      min="1"
+                      value={room.count}
+                      onChange={(e) => handleRoomChange(index, 'count', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-2">
+                    {index > 0 && (
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => removeRoom(index)}>-</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button type="button" className="btn btn-success btn-sm" onClick={addRoom}>+</button>
+            </div>
+
+            <button type="submit" className="btn btn-primary" disabled={submitLoading}>
+              {submitLoading ? 'Submitting...' : 'Submit Proposal'}
+            </button>
+          </form>
+        </div>
+        <div className="col-md-6">
+          <div className="card">
             <div className="card-body">
-              <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                  <label className="form-label">Client Name *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="clientName"
-                    value={formData.clientName}
-                    onChange={handleFormChange}
-                    required
-                  />
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Number of Guests *</label>
+              <div className="mb-3">
+                <div className="row g-2">
+                  <div className="col-md-4">
+                    <label className="form-label">City</label>
                     <input
-                      type="number"
+                      type="text"
                       className="form-control"
-                      name="guests"
-                      value={formData.guests}
-                      onChange={handleFormChange}
-                      min="1"
-                      required
+                      name="city"
+                      placeholder="Filter by City"
+                      value={filters.city}
+                      onChange={handleFilterChange}
                     />
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Number of Rooms</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      name="numberOfRooms"
-                      value={formData.numberOfRooms}
-                      onChange={handleFormChange}
-                      min="1"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Room Type *</label>
+                  <div className="col-md-3">
+                    <label className="form-label">Stars</label>
                     <select
                       className="form-control"
-                      name="roomType"
-                      value={formData.roomType}
-                      onChange={handleFormChange}
-                      required
+                      name="stars"
+                      value={filters.stars}
+                      onChange={handleFilterChange}
                     >
-                      <option value="Standard">Standard</option>
-                      <option value="Deluxe">Deluxe</option>
-                      <option value="Suite">Suite</option>
-                      <option value="Family">Family</option>
-                      <option value="Executive">Executive</option>
+                      <option value="">All</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
                     </select>
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Nights</label>
+                  <div className="col-md-3">
+                    <label className="form-label">Group</label>
                     <input
-                      type="number"
+                      type="text"
                       className="form-control"
-                      name="nights"
-                      value={formData.nights}
-                      onChange={handleFormChange}
-                      min="1"
-                      required
+                      name="groupName"
+                      placeholder="Filter by Group"
+                      value={filters.groupName}
+                      onChange={handleFilterChange}
                     />
                   </div>
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Check-in Date *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      name="checkIn"
-                      value={formData.checkIn}
-                      onChange={handleFormChange}
-                      required
-                    />
+                  <div className="col-md-2">
+                    <label className="form-label">&nbsp;</label>
+                    <button
+                      className="btn btn-outline-secondary btn-sm w-100"
+                      onClick={resetFilters}
+                    >
+                      Reset
+                    </button>
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Check-out Date *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      name="checkOut"
-                      value={formData.checkOut}
-                      onChange={handleFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Price (€) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <div className="form-check">
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        name="breakfast"
-                        checked={formData.breakfast}
-                        onChange={handleFormChange}
-                      />
-                      <label className="form-check-label">Breakfast Included</label>
-                    </div>
-                  </div>
-                  <div className="col-md-6">
-                    <div className="form-check">
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        name="freeCancel"
-                        checked={formData.freeCancel}
-                        onChange={handleFormChange}
-                      />
-                      <label className="form-check-label">Free Cancellation</label>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedHotel && (
-                  <div className="alert alert-info">
-                    <h6>Selected Hotel:</h6>
-                    <strong>{selectedHotel.name}</strong><br />
-                    <small>
-                      {selectedHotel.city} • {selectedHotel.stars} stars • {selectedHotel.type}
-                    </small>
-                  </div>
-                )}
-
-                <div className="d-grid gap-2">
-                  <button
-                    type="submit"
-                    className="btn btn-success"
-                    disabled={!selectedHotel || submitLoading}
-                  >
-                    {submitLoading ? 'Creating...' : 'Create Proposal'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-7">
-          <div className="card">
-            <div className="card-header bg-secondary text-white">
-              <h5>Select Hotel (Sorted by Stars Descending)</h5>
-            </div>
-            <div className="card-body">
-              <div className="row mb-3">
-                <div className="col-md-4">
-                  <input
-                    className="form-control form-control-sm"
-                    type="text"
-                    name="city"
-                    placeholder="Filter by City"
-                    value={filters.city}
-                    onChange={handleFilterChange}
-                  />
-                </div>
-                <div className="col-md-3">
-                  <select
-                    className="form-control form-control-sm"
-                    name="stars"
-                    value={filters.stars}
-                    onChange={handleFilterChange}
-                  >
-                    <option value="">All Stars</option>
-                    <option value="5">5 Stars</option>
-                    <option value="4">4 Stars</option>
-                    <option value="3">3 Stars</option>
-                  </select>
-                </div>
-                <div className="col-md-3">
-                  <input
-                    className="form-control form-control-sm"
-                    type="text"
-                    name="groupName"
-                    placeholder="Filter by Group"
-                    value={filters.groupName}
-                    onChange={handleFilterChange}
-                  />
-                </div>
-                <div className="col-md-2">
-                  <button
-                    className="btn btn-outline-secondary btn-sm w-100"
-                    onClick={resetFilters}
-                  >
-                    Reset
-                  </button>
                 </div>
               </div>
 
@@ -502,7 +427,7 @@ const ProposalFormPage = () => {
                           )}
                         </td>
                         <td>{hotel.city}</td>
-                        <td>{hotel.type || '-'}</td>
+                        <td>{hotel.type}</td>
                         <td>
                           {'★'.repeat(hotel.stars)}
                           <span className="text-muted">{'☆'.repeat(5-hotel.stars)}</span>
@@ -514,9 +439,7 @@ const ProposalFormPage = () => {
                         </td>
                         <td>
                           <button
-                            className={`btn btn-sm ${
-                              selectedHotel?.id === hotel.id ? 'btn-success' : 'btn-outline-primary'
-                            }`}
+                            className={`btn btn-sm ${selectedHotel?.id === hotel.id ? 'btn-success' : 'btn-outline-primary'}`}
                             onClick={() => handleHotelSelect(hotel)}
                           >
                             {selectedHotel?.id === hotel.id ? 'Selected' : 'Select'}

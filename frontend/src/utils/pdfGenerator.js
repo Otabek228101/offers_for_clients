@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 
-export const generateHotelPDF = (hotel, proposalData = null) => {
+export const generateHotelPDF = async (hotel, proposalData = null) => {
     const pdf = new jsPDF();
 
     const primaryColor = [41, 128, 185];
@@ -26,6 +26,62 @@ export const generateHotelPDF = (hotel, proposalData = null) => {
 
     yPosition = 55;
 
+    // Добавление фото отеля с обработкой и ресайзом через прокси
+    if (hotel.image_url) {
+        try {
+            // Используем прокси cors-anywhere для обхода CORS
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const imgResponse = await fetch(proxyUrl + hotel.image_url, { mode: 'cors' });
+            if (!imgResponse.ok) {
+                throw new Error(`HTTP error! Status: ${imgResponse.status} - ${imgResponse.statusText}`);
+            }
+            const imgBlob = await imgResponse.blob();
+
+            // Создаём временный элемент img для ресайза
+            const img = new Image();
+            const imgUrl = URL.createObjectURL(imgBlob);
+            img.src = imgUrl;
+            await new Promise((resolve) => {
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const maxWidth = 180;
+                    const maxHeight = 100;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(async (resizedBlob) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            pdf.addImage(reader.result, 'JPEG', 15, yPosition, 180, 100);
+                            yPosition += 110;
+                        };
+                        reader.readAsDataURL(resizedBlob);
+                        resolve();
+                    }, 'image/jpeg', 0.9);
+                };
+                img.onerror = () => {
+                    throw new Error('Image failed to load');
+                };
+            });
+        } catch (err) {
+            console.error('Failed to load or process hotel image:', err.message, 'URL:', hotel.image_url);
+        }
+    }
+
     pdf.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
     pdf.roundedRect(10, yPosition, 190, 20, 2, 2, 'F');
 
@@ -47,6 +103,7 @@ export const generateHotelPDF = (hotel, proposalData = null) => {
                 { label: 'City', value: hotel.city },
                 { label: 'Group', value: hotel.group_name || 'Not specified' },
                 { label: 'Star Rating', value: `${hotel.stars}/5` },
+                { label: 'Website Link', value: hotel.website_link || 'Not specified' },
             ]
         },
         {
@@ -55,6 +112,7 @@ export const generateHotelPDF = (hotel, proposalData = null) => {
                 { label: 'Address', value: hotel.address },
                 { label: 'Breakfast', value: hotel.breakfast ? 'Included' : 'Not included' },
                 { label: 'Hotel Type', value: hotel.type || 'Standard' },
+                { label: 'Location Link', value: hotel.location_link || 'Not specified' },
             ]
         }
     ];
@@ -70,176 +128,34 @@ export const generateHotelPDF = (hotel, proposalData = null) => {
 
         pdf.setFontSize(9);
         pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+        pdf.setFont('helvetica', 'normal');
+
+        const sectionX = leftColumn;
+        pdf.roundedRect(sectionX, sectionY + 2, 180, 10, 2, 2, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(section.title, sectionX + 10, sectionY + 10);
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+        let itemY = sectionY + 20;
+        pdf.setFontSize(8);
 
         section.items.forEach((item, itemIndex) => {
-            if (sectionY > 260) {
-                pdf.addPage();
-                sectionY = 20;
-            }
-
             pdf.setFont('helvetica', 'bold');
-            pdf.text(`${item.label}:`, leftColumn, sectionY);
+            pdf.text(`${item.label}:`, sectionX + 12, itemY + 4);
             pdf.setFont('helvetica', 'normal');
 
-            const lines = pdf.splitTextToSize(String(item.value), 160);
-            pdf.text(lines, leftColumn + 30, sectionY);
+            const valueLines = pdf.splitTextToSize(String(item.value), 150);
+            pdf.text(valueLines, sectionX + 12, itemY + 8);
 
-            sectionY += Math.max(8, lines.length * 5);
-
-            if (itemIndex < section.items.length - 1) {
-                pdf.setDrawColor(200, 200, 200);
-                pdf.line(leftColumn, sectionY - 2, leftColumn + 160, sectionY - 2);
-                sectionY += 4;
-            }
+            itemY += Math.max(10, valueLines.length * 3.5);
         });
 
-        currentY = sectionY + 10;
+        currentY = itemY + 10;
     });
 
-    yPosition = currentY;
+    yPosition = currentY + 20;
 
-    if (hotel.website_link || hotel.location_link) {
-        pdf.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
-        pdf.roundedRect(10, yPosition, 190, 25, 2, 2, 'F');
-
-        pdf.setFontSize(11);
-        pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('IMPORTANT LINKS', 15, yPosition + 12);
-
-        yPosition += 30;
-
-        let linkY = yPosition;
-
-        if (hotel.website_link) {
-            pdf.setFontSize(9);
-            pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Booking Website:', 15, linkY);
-
-            pdf.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-            pdf.setFont('helvetica', 'normal');
-
-            const truncatedWebsite = hotel.website_link.length > 40
-                ? hotel.website_link.substring(0, 40) + '...'
-                : hotel.website_link;
-
-            try {
-                pdf.textWithLink(truncatedWebsite, 50, linkY, { url: hotel.website_link });
-            } catch (e) {
-                pdf.text(truncatedWebsite, 50, linkY);
-            }
-            linkY += 6;
-
-            pdf.setTextColor(150, 150, 150);
-            pdf.setFontSize(7);
-            pdf.text('Click to open booking page', 50, linkY);
-            linkY += 12;
-        }
-
-        if (hotel.location_link) {
-            pdf.setFontSize(9);
-            pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Location Map:', 15, linkY);
-
-            pdf.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-            pdf.setFont('helvetica', 'normal');
-
-            const truncatedLocation = hotel.location_link.length > 40
-                ? hotel.location_link.substring(0, 40) + '...'
-                : hotel.location_link;
-
-            try {
-                pdf.textWithLink(truncatedLocation, 50, linkY, { url: hotel.location_link });
-            } catch (e) {
-                pdf.text(truncatedLocation, 50, linkY);
-            }
-            linkY += 6;
-
-            pdf.setTextColor(150, 150, 150);
-            pdf.setFontSize(7);
-            pdf.text('Click to view on map', 50, linkY);
-            linkY += 12;
-        }
-
-        yPosition = linkY + 8;
-    }
-
-    if (proposalData && proposalData.clientName) {
-        pdf.addPage();
-        yPosition = 20;
-
-        pdf.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
-        pdf.rect(0, 0, 210, 35, 'F');
-
-        pdf.setFontSize(18);
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('PROPOSAL DETAILS', 105, 20, { align: 'center' });
-
-        yPosition = 45;
-
-        const proposalSections = [
-            {
-                title: 'Client Information',
-                items: [
-                    { label: 'Client Name', value: proposalData.clientName },
-                    { label: 'Number of Guests', value: proposalData.guests },
-                    { label: 'Number of Rooms', value: proposalData.numberOfRooms },
-                    { label: 'Room Type', value: proposalData.roomType },
-                ]
-            },
-            {
-                title: 'Stay Details',
-                items: [
-                    { label: 'Check-in Date', value: formatDate(proposalData.checkIn) },
-                    { label: 'Check-out Date', value: formatDate(proposalData.checkOut) },
-                    { label: 'Number of Nights', value: proposalData.nights },
-                    { label: 'Total Price', value: `€${proposalData.price}` },
-                ]
-            },
-            {
-                title: 'Additional Services',
-                items: [
-                    { label: 'Breakfast Included', value: proposalData.breakfast ? 'Yes' : 'No' },
-                    { label: 'Free Cancellation', value: proposalData.freeCancel ? 'Yes' : 'No' },
-                ]
-            }
-        ];
-
-        proposalSections.forEach((section, index) => {
-            const sectionX = 15;
-            const sectionY = yPosition + (index * 70);
-
-            pdf.setFillColor(249, 249, 249);
-            pdf.roundedRect(sectionX, sectionY, 180, 60, 5, 5, 'F');
-            pdf.setDrawColor(200, 200, 200);
-            pdf.roundedRect(sectionX, sectionY, 180, 60, 5, 5, 'S');
-
-            pdf.setFontSize(10);
-            pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text(section.title, sectionX + 10, sectionY + 12);
-
-            let itemY = sectionY + 20;
-            pdf.setFontSize(8);
-            pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-            section.items.forEach((item, itemIndex) => {
-                pdf.setFont('helvetica', 'bold');
-                pdf.text(`${item.label}:`, sectionX + 12, itemY + 4);
-                pdf.setFont('helvetica', 'normal');
-
-                const valueLines = pdf.splitTextToSize(String(item.value), 150);
-                pdf.text(valueLines, sectionX + 12, itemY + 8);
-
-                itemY += Math.max(10, valueLines.length * 3.5);
-            });
-        });
-
-        yPosition += 220;
-
+    if (proposalData) {
         pdf.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
         pdf.roundedRect(15, yPosition, 180, 25, 2, 2, 'F');
 

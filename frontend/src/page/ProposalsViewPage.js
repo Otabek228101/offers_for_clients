@@ -93,8 +93,6 @@ const ProposalsViewPage = () => {
                   <th>City</th>
                   <th>Guests</th>
                   <th>Rooms</th>
-                  <th>Room Type</th>
-                  <th>Nights</th>
                   <th>Check-in</th>
                   <th>Check-out</th>
                   <th>Price</th>
@@ -115,13 +113,7 @@ const ProposalsViewPage = () => {
                       <span className="badge bg-info">{proposal.guests}</span>
                     </td>
                     <td>
-                      <span className="badge bg-warning">{proposal.numberOfRooms}</span>
-                    </td>
-                    <td>
-                      <span className="badge bg-secondary">{proposal.roomType}</span>
-                    </td>
-                    <td>
-                      <span className="badge bg-light text-dark">{proposal.nights}</span>
+                      {proposal.rooms.map(r => `x${r.count}`).join(', ')}
                     </td>
                     <td>{formatDate(proposal.checkIn)}</td>
                     <td>{formatDate(proposal.checkOut)}</td>

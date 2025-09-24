@@ -8,12 +8,13 @@ const CreateHotelPage = () => {
     name: '',
     city: '',
     group_name: '',
-    type: 'Business',
+    type: 'hotel',
     stars: 4,
     address: '',
     location_link: '',
     website_link: '',
-    breakfast: true
+    breakfast: true,
+    image_url: '' 
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,9 +32,8 @@ const CreateHotelPage = () => {
     setLoading(true);
     setError('');
 
-    // Валидация
     if (!formData.name.trim() || !formData.city.trim() || !formData.address.trim()) {
-      setError('Name, City, and Address are required fields');
+      setError('Name, Address, and City are required');
       setLoading(false);
       return;
     }
@@ -45,12 +45,27 @@ const CreateHotelPage = () => {
     }
 
     try {
+      const requestData = {
+        name: formData.name.trim(),
+        city: formData.city.trim(),
+        group_name: formData.group_name.trim(),
+        type: formData.type,
+        stars: parseInt(formData.stars),
+        address: formData.address.trim(),
+        location_link: formData.location_link.trim(),
+        website_link: formData.website_link.trim(),
+        breakfast: formData.breakfast,
+        image_url: formData.image_url.trim() 
+      };
+
+      console.log('Sending data to backend:', requestData);
+
       const response = await fetch('http://localhost:8080/api/hotels', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(requestData)
       });
 
       const result = await response.json();
@@ -59,10 +74,12 @@ const CreateHotelPage = () => {
         alert('Hotel created successfully!');
         navigate('/');
       } else {
-        setError(result.error || 'Failed to create hotel');
+        setError(result.error || result.details || 'Failed to create hotel');
+        console.error('Backend error:', result);
       }
     } catch (err) {
-      setError('Error creating hotel: ' + err.message);
+      setError('Network error: ' + err.message);
+      console.error('Network error:', err);
     } finally {
       setLoading(false);
     }
@@ -73,12 +90,13 @@ const CreateHotelPage = () => {
       name: '',
       city: '',
       group_name: '',
-      type: 'Business',
+      type: 'hotel',
       stars: 4,
       address: '',
       location_link: '',
       website_link: '',
-      breakfast: true
+      breakfast: true,
+      image_url: ''
     });
     setError('');
   };
@@ -100,133 +118,123 @@ const CreateHotelPage = () => {
       <div className="row justify-content-center">
         <div className="col-md-8">
           <div className="card">
-            <div className="card-header bg-primary text-white">
-              <h5>Hotel Information</h5>
-            </div>
             <div className="card-body">
-              {error && (
-                <div className="alert alert-danger" role="alert">
-                  {error}
-                </div>
-              )}
-
               <form onSubmit={handleSubmit}>
                 <div className="row">
-                  <div className="col-md-6">
-                    <div className="mb-3">
-                      <label className="form-label">Hotel Name *</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        placeholder="Enter hotel name"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">City *</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="city"
-                        value={formData.city}
-                        onChange={handleChange}
-                        required
-                        placeholder="Enter city"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">Group Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="group_name"
-                        value={formData.group_name}
-                        onChange={handleChange}
-                        placeholder="e.g., UNA Hotels, Barriere Group"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">Hotel Type</label>
-                      <select
-                        className="form-control"
-                        name="type"
-                        value={formData.type}
-                        onChange={handleChange}
-                      >
-                        <option value="Business">Business</option>
-                        <option value="Luxury">Luxury</option>
-                        <option value="Boutique">Boutique</option>
-                        <option value="Resort">Resort</option>
-                        <option value="Standard">Standard</option>
-                      </select>
-                    </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
-
-                  <div className="col-md-6">
-                    <div className="mb-3">
-                      <label className="form-label">Star Rating *</label>
-                      <select
-                        className="form-control"
-                        name="stars"
-                        value={formData.stars}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value={1}>1 Star</option>
-                        <option value={2}>2 Stars</option>
-                        <option value={3}>3 Stars</option>
-                        <option value={4}>4 Stars</option>
-                        <option value={5}>5 Stars</option>
-                      </select>
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">Address *</label>
-                      <textarea
-                        className="form-control"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        required
-                        rows="3"
-                        placeholder="Full hotel address"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">Website Link</label>
-                      <input
-                        type="url"
-                        className="form-control"
-                        name="website_link"
-                        value={formData.website_link}
-                        onChange={handleChange}
-                        placeholder="https://example.com"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">Location Link (Google Maps)</label>
-                      <input
-                        type="url"
-                        className="form-control"
-                        name="location_link"
-                        value={formData.location_link}
-                        onChange={handleChange}
-                        placeholder="https://goo.gl/maps/..."
-                      />
-                    </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">City</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
                 </div>
 
                 <div className="row">
-                  <div className="col-12">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Group Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="group_name"
+                      value={formData.group_name}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Type</label>
+                    <select
+                      className="form-control"
+                      name="type"
+                      value={formData.type}
+                      onChange={handleChange}
+                    >
+                      <option value="hotel">Hotel</option>
+                      <option value="apartment">Apartment</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Stars</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="stars"
+                      value={formData.stars}
+                      onChange={handleChange}
+                      min="1"
+                      max="5"
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Address</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Website Link</label>
+                    <input
+                      type="url"
+                      className="form-control"
+                      name="website_link"
+                      value={formData.website_link}
+                      onChange={handleChange}
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Location Link (Google Maps)</label>
+                    <input
+                      type="url"
+                      className="form-control"
+                      name="location_link"
+                      value={formData.location_link}
+                      onChange={handleChange}
+                      placeholder="https://goo.gl/maps/..."
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Image URL</label>
+                    <input
+                      type="url"
+                      className="form-control"
+                      name="image_url"
+                      value={formData.image_url}
+                      onChange={handleChange}
+                      placeholder="https://example.com/hotel.jpg"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
                     <div className="form-check mb-4">
                       <input
                         type="checkbox"
@@ -257,7 +265,7 @@ const CreateHotelPage = () => {
                       'Create Hotel'
                     )}
                   </button>
-
+                  
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
@@ -266,7 +274,7 @@ const CreateHotelPage = () => {
                   >
                     Reset Form
                   </button>
-
+                  
                   <button
                     type="button"
                     className="btn btn-outline-danger ms-auto"
@@ -281,14 +289,14 @@ const CreateHotelPage = () => {
 
           <div className="card mt-4">
             <div className="card-header bg-light">
-              <h6>Quick Tips</h6>
+              <h6>Backend Requirements</h6>
             </div>
             <div className="card-body">
               <ul className="list-unstyled mb-0">
-                <li>• Required fields are marked with *</li>
-                <li>• Star rating affects hotel sorting</li>
-                <li>• Use full addresses for better location accuracy</li>
-                <li>• Website and map links will be clickable in PDF exports</li>
+                <li>• <strong>Required fields:</strong> Name, City, Address</li>
+                <li>• <strong>Stars validation:</strong> Must be between 1 and 5</li>
+                <li>• <strong>Request format:</strong> JSON matching CreateHotelRequest struct</li>
+                <li>• <strong>Field names:</strong> name, city, group_name, type, stars, address, location_link, website_link, breakfast, image_url</li>
               </ul>
             </div>
           </div>
