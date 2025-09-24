@@ -9,4 +9,24 @@ const getHotels = async (city = '') => {
   return response.data;
 };
 
-export default { getHotels };
+const createHotel = async (hotelData) => {
+  const response = await axios.post(`${API_URL}/hotels`, hotelData);
+  return response.data;
+};
+
+const updateHotel = async (id, hotelData) => {
+  const response = await axios.put(`${API_URL}/hotels/${id}`, hotelData);
+  return response.data;
+};
+
+const deleteHotel = async (id) => {
+  const response = await axios.delete(`${API_URL}/hotels/${id}`);
+  return response.data;
+};
+
+export default {
+  getHotels,
+  createHotel,
+  updateHotel,
+  deleteHotel
+};

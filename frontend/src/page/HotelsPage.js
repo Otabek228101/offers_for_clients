@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { generateHotelPDF } from '../utils/pdfGenerator';
 import HotelService from '../services/HotelService';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -8,15 +9,13 @@ const HotelsPage = () => {
   const [filteredHotels, setFilteredHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [sortBy, setSortBy] = useState('city');
-  const [sortOrder, setSortOrder] = useState('asc');
-  
+
   const [filters, setFilters] = useState({
     city: '',
     stars: '',
     groupName: ''
   });
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,14 +23,16 @@ const HotelsPage = () => {
   }, []);
 
   useEffect(() => {
-    applyFiltersAndSort();
-  }, [hotels, filters, sortBy, sortOrder]);
+    applyFilters();
+  }, [hotels, filters]);
 
   const fetchHotels = async () => {
     try {
       setLoading(true);
       const data = await HotelService.getHotels();
-      setHotels(data);
+      const sortedHotels = data.sort((a, b) => b.stars - a.stars);
+      setHotels(sortedHotels);
+      setFilteredHotels(sortedHotels);
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch hotels');
@@ -39,64 +40,28 @@ const HotelsPage = () => {
     }
   };
 
-  const applyFiltersAndSort = () => {
+  const applyFilters = () => {
     let filtered = [...hotels];
-    
+
     if (filters.city) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.city.toLowerCase().includes(filters.city.toLowerCase())
       );
     }
-    
+
     if (filters.stars) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.stars === parseInt(filters.stars)
       );
     }
-    
+
     if (filters.groupName) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.group_name && hotel.group_name.toLowerCase().includes(filters.groupName.toLowerCase())
       );
     }
-    
-    filtered = sortHotels(filtered, sortBy, sortOrder);
-    
+
     setFilteredHotels(filtered);
-  };
-
-  const sortHotels = (data, by, order) => {
-    return [...data].sort((a, b) => {
-      let valA = a[by];
-      let valB = b[by];
-      
-      if (by === 'stars') {
-        valA = Number(valA);
-        valB = Number(valB);
-        return order === 'desc' ? valB - valA : valA - valB;
-      }
-      
-      if (typeof valA === 'string') {
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
-      }
-      
-      if (order === 'asc') {
-        if (valA < valB) return -1;
-        if (valA > valB) return 1;
-        return 0;
-      } else {
-        if (valA > valB) return -1;
-        if (valA < valB) return 1;
-        return 0;
-      }
-    });
-  };
-
-  const handleSort = (column) => {
-    const newOrder = sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortBy(column);
-    setSortOrder(newOrder);
   };
 
   const handleFilterChange = (e) => {
@@ -115,6 +80,23 @@ const HotelsPage = () => {
     });
   };
 
+  const handleHotelNameDoubleClick = (hotel) => {
+    generateHotelPDF(hotel);
+  };
+
+  const handleSelectHotel = (hotel) => {
+    navigate('/form', {
+      state: {
+        selectedHotel: hotel,
+        filters: {
+          city: hotel.city,
+          stars: filters.stars,
+          groupName: filters.groupName
+        }
+      }
+    });
+  };
+
   if (loading) return <div className="container mt-5"><div className="alert alert-info">Loading hotels...</div></div>;
   if (error) return <div className="container mt-5"><div className="alert alert-danger">{error}</div></div>;
 
@@ -124,20 +106,26 @@ const HotelsPage = () => {
         <div className="col-md-8">
           <h1>Hotels Management</h1>
         </div>
-        <div className="col-md-4 text-end">
-          <button 
-            className="btn btn-success me-2"
-            onClick={() => navigate('/form')}
-          >
-            Create Proposal
-          </button>
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => navigate('/proposals')}
-          >
-            View Proposals
-          </button>
-        </div>
+          <div className="col-md-4 text-end">
+            <button
+              className="btn btn-primary me-2"
+              onClick={() => navigate('/create-hotel')}
+            >
+              Add New Hotel
+            </button>
+            <button
+              className="btn btn-success me-2"
+              onClick={() => navigate('/form')}
+            >
+              Create Proposal
+            </button>
+            <button
+              className="btn btn-outline-primary"
+              onClick={() => navigate('/proposals')}
+            >
+              View Proposals
+            </button>
+          </div>
       </div>
 
       <div className="card mb-4">
@@ -163,9 +151,9 @@ const HotelsPage = () => {
                 onChange={handleFilterChange}
               >
                 <option value="">All Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="4">4 Stars</option>
                 <option value="5">5 Stars</option>
+                <option value="4">4 Stars</option>
+                <option value="3">3 Stars</option>
               </select>
             </div>
             <div className="col-md-3">
@@ -182,8 +170,8 @@ const HotelsPage = () => {
             <div className="col-md-3">
               <label className="form-label">&nbsp;</label>
               <div className="d-grid">
-                <button 
-                  className="btn btn-outline-secondary" 
+                <button
+                  className="btn btn-outline-secondary"
                   onClick={resetFilters}
                 >
                   Reset Filters
@@ -200,31 +188,11 @@ const HotelsPage = () => {
             <table className="table table-striped table-hover table-bordered">
               <thead className="table-dark">
                 <tr>
-                  <th 
-                    style={{cursor: 'pointer'}} 
-                    onClick={() => handleSort('city')}
-                  >
-                    City {sortBy === 'city' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th 
-                    style={{cursor: 'pointer'}} 
-                    onClick={() => handleSort('group_name')}
-                  >
-                    Group {sortBy === 'group_name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
+                  <th>Hotel Name</th>
+                  <th>City</th>
+                  <th>Group</th>
                   <th>Type</th>
-                  <th 
-                    style={{cursor: 'pointer'}} 
-                    onClick={() => handleSort('name')}
-                  >
-                    Hotel Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th 
-                    style={{cursor: 'pointer'}} 
-                    onClick={() => handleSort('stars')}
-                  >
-                    Stars {sortBy === 'stars' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
+                  <th>Stars</th>
                   <th>Address</th>
                   <th>Breakfast</th>
                 </tr>
@@ -232,10 +200,19 @@ const HotelsPage = () => {
               <tbody>
                 {filteredHotels.map(hotel => (
                   <tr key={hotel.id}>
+                    <td
+                      onDoubleClick={() => handleHotelNameDoubleClick(hotel)}
+                      style={{
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                      title="Double click to download PDF"
+                    >
+                      {hotel.name}
+                    </td>
                     <td>{hotel.city}</td>
                     <td>{hotel.group_name || '-'}</td>
                     <td>{hotel.type || '-'}</td>
-                    <td>{hotel.name}</td>
                     <td>
                       {'★'.repeat(hotel.stars)}
                       <span className="text-muted">{'☆'.repeat(5-hotel.stars)}</span>
@@ -251,7 +228,7 @@ const HotelsPage = () => {
               </tbody>
             </table>
           </div>
-          
+
           {filteredHotels.length === 0 && (
             <div className="text-center text-muted py-4">
               No hotels found matching your filters.

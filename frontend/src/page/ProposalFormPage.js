@@ -5,7 +5,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 const ProposalFormPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [formData, setFormData] = useState({
     clientName: '',
     guests: 1,
@@ -24,7 +24,8 @@ const ProposalFormPage = () => {
   const [filteredHotels, setFilteredHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedHotel, setSelectedHotel] = useState(null);
-  
+  const [submitLoading, setSubmitLoading] = useState(false);
+
   const [filters, setFilters] = useState({
     city: '',
     stars: '',
@@ -39,7 +40,7 @@ const ProposalFormPage = () => {
         ...prev,
         hotelId: hotel.id,
       }));
-      
+
       if (location.state.filters) {
         setFilters(location.state.filters);
       } else {
@@ -65,6 +66,7 @@ const ProposalFormPage = () => {
       const response = await fetch('http://localhost:8080/api/hotels');
       if (response.ok) {
         const data = await response.json();
+        data.sort((a, b) => b.stars - a.stars);
         setHotels(data);
         setLoading(false);
       }
@@ -76,25 +78,25 @@ const ProposalFormPage = () => {
 
   const applyFilters = () => {
     let filtered = [...hotels];
-    
+
     if (filters.city) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.city.toLowerCase().includes(filters.city.toLowerCase())
       );
     }
-    
+
     if (filters.stars) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.stars === parseInt(filters.stars)
       );
     }
-    
+
     if (filters.groupName) {
-      filtered = filtered.filter(hotel => 
+      filtered = filtered.filter(hotel =>
         hotel.group_name && hotel.group_name.toLowerCase().includes(filters.groupName.toLowerCase())
       );
     }
-    
+
     setFilteredHotels(filtered);
 
     if (selectedHotel && !filtered.find(h => h.id === selectedHotel.id)) {
@@ -120,7 +122,7 @@ const ProposalFormPage = () => {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     const newFormData = {
       ...formData,
       [name]: type === 'checkbox' ? checked : value,
@@ -129,7 +131,7 @@ const ProposalFormPage = () => {
     if (name === 'guests') {
       const guests = parseInt(value) || 1;
       let numberOfRooms = 1;
-      
+
       if (guests <= 2) {
         numberOfRooms = 1;
       } else if (guests <= 4) {
@@ -139,7 +141,7 @@ const ProposalFormPage = () => {
       } else {
         numberOfRooms = Math.ceil(guests / 2);
       }
-      
+
       newFormData.numberOfRooms = numberOfRooms;
     }
 
@@ -165,9 +167,14 @@ const ProposalFormPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedHotel) {
       alert('Please select a hotel first');
+      return;
+    }
+
+    if (!formData.clientName) {
+      alert('Please enter client name');
       return;
     }
 
@@ -186,38 +193,47 @@ const ProposalFormPage = () => {
       return;
     }
 
+    setSubmitLoading(true);
+
     try {
+      const proposalData = {
+        clientName: formData.clientName,
+        guests: parseInt(formData.guests),
+        nights: parseInt(formData.nights),
+        numberOfRooms: parseInt(formData.numberOfRooms),
+        roomType: formData.roomType,
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        price: parseFloat(formData.price),
+        breakfast: formData.breakfast,
+        freeCancel: formData.freeCancel,
+        hotelId: parseInt(formData.hotelId),
+      };
+
+      console.log('Sending proposal data:', proposalData);
+
       const response = await fetch('http://localhost:8080/api/proposals', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
+        headers: {
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          clientName: formData.clientName,
-          guests: parseInt(formData.guests),
-          nights: parseInt(formData.nights),
-          numberOfRooms: parseInt(formData.numberOfRooms),
-          roomType: formData.roomType,
-          checkIn: formData.checkIn,
-          checkOut: formData.checkOut,
-          price: parseFloat(formData.price),
-          breakfast: formData.breakfast,
-          freeCancel: formData.freeCancel,
-          hotelId: parseInt(formData.hotelId),
-        }),
+        body: JSON.stringify(proposalData),
       });
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        const result = await response.json();
-        alert(`Proposal created successfully! Proposal Number: ${result.proposalNumber}`);
+        alert(`Proposal created successfully! Proposal Number: ${responseData.proposalNumber}`);
         navigate('/proposals');
       } else {
-        const errorData = await response.json();
-        alert(`Failed to create proposal: ${errorData.error}`);
+        console.error('Server error:', responseData);
+        alert(`Failed to create proposal: ${responseData.error}`);
       }
     } catch (err) {
       console.error('Error submitting proposal:', err);
-      alert('Error submitting proposal');
+      alert('Error submitting proposal. Check console for details.');
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -227,8 +243,8 @@ const ProposalFormPage = () => {
     <div className="container-fluid mt-3">
       <div className="row mb-3">
         <div className="col-12">
-          <button 
-            className="btn btn-secondary me-2" 
+          <button
+            className="btn btn-secondary me-2"
             onClick={() => navigate('/')}
           >
             ← Back to Hotels
@@ -397,13 +413,15 @@ const ProposalFormPage = () => {
                   </div>
                 )}
 
-                <button 
-                  type="submit" 
-                  className="btn btn-success w-100"
-                  disabled={!selectedHotel}
-                >
-                  Create Proposal
-                </button>
+                <div className="d-grid gap-2">
+                  <button
+                    type="submit"
+                    className="btn btn-success"
+                    disabled={!selectedHotel || submitLoading}
+                  >
+                    {submitLoading ? 'Creating...' : 'Create Proposal'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -412,7 +430,7 @@ const ProposalFormPage = () => {
         <div className="col-md-7">
           <div className="card">
             <div className="card-header bg-secondary text-white">
-              <h5>Select Hotel</h5>
+              <h5>Select Hotel (Sorted by Stars Descending)</h5>
             </div>
             <div className="card-body">
               <div className="row mb-3">
@@ -434,9 +452,9 @@ const ProposalFormPage = () => {
                     onChange={handleFilterChange}
                   >
                     <option value="">All Stars</option>
-                    <option value="3">3 Stars</option>
-                    <option value="4">4 Stars</option>
                     <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                    <option value="3">3 Stars</option>
                   </select>
                 </div>
                 <div className="col-md-3">
@@ -450,8 +468,8 @@ const ProposalFormPage = () => {
                   />
                 </div>
                 <div className="col-md-2">
-                  <button 
-                    className="btn btn-outline-secondary btn-sm w-100" 
+                  <button
+                    className="btn btn-outline-secondary btn-sm w-100"
                     onClick={resetFilters}
                   >
                     Reset
@@ -473,10 +491,9 @@ const ProposalFormPage = () => {
                   </thead>
                   <tbody>
                     {filteredHotels.map(hotel => (
-                      <tr 
+                      <tr
                         key={hotel.id}
                         className={selectedHotel?.id === hotel.id ? 'table-success' : ''}
-                        style={selectedHotel?.id === hotel.id ? {fontWeight: 'bold'} : {}}
                       >
                         <td>
                           {hotel.name}
@@ -496,7 +513,7 @@ const ProposalFormPage = () => {
                           </span>
                         </td>
                         <td>
-                          <button 
+                          <button
                             className={`btn btn-sm ${
                               selectedHotel?.id === hotel.id ? 'btn-success' : 'btn-outline-primary'
                             }`}
@@ -510,7 +527,7 @@ const ProposalFormPage = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               {filteredHotels.length === 0 && (
                 <div className="text-center text-muted py-4">
                   No hotels found matching your filters.
