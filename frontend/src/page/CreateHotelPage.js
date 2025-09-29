@@ -75,7 +75,7 @@ const CreateHotelPage = () => {
         }
       }
       alert('Hotel created');
-      navigate('/hotels');
+      navigate('/');
     } catch (err) {
       alert(String(err.message || err));
     } finally {
@@ -137,7 +137,7 @@ const CreateHotelPage = () => {
         </div>
         <div className="mt-4 d-flex gap-2">
           <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
-          <button type="button" className="btn btn-outline-secondary" onClick={() => navigate('/hotels')}>Cancel</button>
+          <button type="button" className="btn btn-outline-secondary" onClick={() => navigate('/')}>Cancel</button>
         </div>
       </form>
     </div>

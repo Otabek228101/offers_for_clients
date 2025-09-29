@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generateHotelPDF } from '../utils/pdfGenerator';
+import { generateHotelPDF, generateAllHotelsPDF } from '../utils/pdfGenerator';
 import HotelService from '../services/HotelService';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -30,7 +30,7 @@ const HotelsPage = () => {
     try {
       setLoading(true);
       const data = await HotelService.getHotels();
-      const sortedHotels = data.sort((a, b) => b.stars - a.stars);
+      const sortedHotels = (Array.isArray(data) ? data : []).sort((a, b) => (b.stars || 0) - (a.stars || 0));
       setHotels(sortedHotels);
       setFilteredHotels(sortedHotels);
       setLoading(false);
@@ -45,13 +45,13 @@ const HotelsPage = () => {
 
     if (filters.city) {
       filtered = filtered.filter(hotel =>
-        hotel.city.toLowerCase().includes(filters.city.toLowerCase())
+        String(hotel.city || '').toLowerCase().includes(filters.city.toLowerCase())
       );
     }
 
     if (filters.stars) {
       filtered = filtered.filter(hotel =>
-        hotel.stars === parseInt(filters.stars)
+        Number(hotel.stars) === parseInt(filters.stars)
       );
     }
 
@@ -97,6 +97,12 @@ const HotelsPage = () => {
     });
   };
 
+  const handleDownloadAll = async () => {
+    const list = filteredHotels.length ? filteredHotels : hotels;
+    if (!list.length) return;
+    await generateAllHotelsPDF(list);
+  };
+
   if (loading) return <div className="container mt-5"><div className="alert alert-info">Loading hotels...</div></div>;
   if (error) return <div className="container mt-5"><div className="alert alert-danger">{error}</div></div>;
 
@@ -106,26 +112,32 @@ const HotelsPage = () => {
         <div className="col-md-8">
           <h1>Hotels Management</h1>
         </div>
-            <div className="col-md-4 text-end">
-              <button
-                className="btn btn-primary me-2"
-                onClick={() => navigate('/create-hotel')}
-              >
-                Add New Hotel
-              </button>
-              <button
-                className="btn btn-success me-2"
-                onClick={() => navigate('/form')}
-              >
-                Create Proposal
-              </button>
-              <button
-                className="btn btn-outline-primary"
-                onClick={() => navigate('/proposals')}
-              >
-                View Proposals
-              </button>
-            </div>
+        <div className="col-md-4 text-end">
+          <button
+            className="btn btn-primary me-2"
+            onClick={() => navigate('/create-hotel')}
+          >
+            Add New Hotel
+          </button>
+          <button
+            className="btn btn-success me-2"
+            onClick={() => navigate('/form')}
+          >
+            Create Proposal
+          </button>
+          <button
+            className="btn btn-outline-primary me-2"
+            onClick={() => navigate('/proposals')}
+          >
+            View Proposals
+          </button>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleDownloadAll}
+          >
+            Download All PDF
+          </button>
+        </div>
       </div>
 
       <div className="card mb-4">
@@ -154,6 +166,8 @@ const HotelsPage = () => {
                 <option value="5">5 Stars</option>
                 <option value="4">4 Stars</option>
                 <option value="3">3 Stars</option>
+                <option value="2">2 Stars</option>
+                <option value="1">1 Star</option>
               </select>
             </div>
             <div className="col-md-3">
@@ -202,10 +216,7 @@ const HotelsPage = () => {
                   <tr key={hotel.id}>
                     <td
                       onDoubleClick={() => handleHotelNameDoubleClick(hotel)}
-                      style={{
-                        cursor: 'pointer',
-                        textDecoration: 'underline'
-                      }}
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
                       title="Double click to download PDF"
                     >
                       {hotel.name}
@@ -215,7 +226,7 @@ const HotelsPage = () => {
                     <td>{hotel.type || '-'}</td>
                     <td>
                       {'★'.repeat(hotel.stars)}
-                      <span className="text-muted">{'☆'.repeat(5-hotel.stars)}</span>
+                      <span className="text-muted">{'☆'.repeat(5 - hotel.stars)}</span>
                     </td>
                     <td>{hotel.address}</td>
                     <td>
